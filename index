@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Exaggerated 3D Star Map - All Constellations (Babylon.js)</title>
+    <style>
+        html, body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            color: #fff;
+            font-family: Arial, sans-serif;
+        }
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+        #infoBox {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background-color: rgba(0, 0, 0, 0.75);
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-size: 0.9rem;
+            color: #ccc;
+            display: none;
+            pointer-events: none;
+             z-index: 10;
+        }
+         #instructions {
+             position: absolute;
+             top: 10px;
+             left: 10px;
+             background-color: rgba(0, 0, 0, 0.6);
+             padding: 5px 10px;
+             border-radius: 5px;
+             font-size: 0.8rem;
+             color: #aaa;
+             pointer-events: none;
+             z-index: 10;
+         }
+    </style>
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+</head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <div id="infoBox">
+        <span id="starName">Star:</span> |
+        <span id="constellationName">Constellation:</span>
+    </div>
+     <div id="instructions">Drag to rotate | Scroll/Pinch to zoom | Right-Click/Two-Finger Drag to pan | Click star for info</div>
+
+    <script>
+        const canvas = document.getElementById('renderCanvas');
+        const engine = new BABYLON.Engine(canvas, true, { stencil: true });
+        let scene;
+
+        const distanceScaleFactor = 80;
+        const starSizeScaleFactor = 0.9;
+        const backgroundStarSize = 0.3;
+
+        const starTextureBase64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAQKADAAQAAAABAAAAQAAAAABGUUKwAAACNUlEQVR4Ae2au27CMBBEvXqf//9Ph0lJkQJFbbHSoQkcNfGUY+Mhhoj79/P5/OIXARQeAuGzABQeAuGzABQeAuGzABQeAuGzABQeAuGzABQeAuGzALx++fDt+n7/9+P1+/U4A/8vAkzK7+Pz+n6/P6zW6wPQuBqAXg0A/Xk/P8bL83p9WwPAZQF4ffL88Nvv+vU6f38B4MmAeR8Avy+//+bxfj9uA0ALAF5//vn5/T5en4MDeM/g83q93m8D8E8A/n5+8fz4+fFxfv8L4EMBPk+A+LMBeBbQ6/U+f//8fPv/vAJMhPj55fn1+v2qj1sA4NMAfF4/r+fH55gA6NMAYPMAeP36//f1+/X3SgDwC4AnA8wD4Pf7+Xm9fs0AvAcAfwHoDwB7ALwGgHcAlwHIvwBcj4DfBbgBwD4A3wLgvwCuA3APgH0AuAHAPsAnAOwD8A2ADYB9AD4BYB+APwDsA/A9APsAfAfAPsA3ANYB+A7APsAfANgH4BcB+wbAvAEwD8A3AuwB8B2AfQC+AmAfgHcAlwHIvwBcj4DfBbgBwD4A3wLgvwCuA3APgH0AuAHAPsAnAOwD8A2ADYB9AD4BYB+APwDsA/A9APsAfAfAPsA3ANYB+A7APsAfANgH4BcB+wbAvAEwD8A3AuwB8B2AfQC+AmAfgHcAlwHIvwBcj4DfBbgBwD4A3wLgvwCuA3APgH0AuAHAPsAnAOwD8A2ADYB9AD4BYB+APwDsA/A9APsAfAfAPsA3ANYB+A7APsAfANgH4BcB+wbAvAEwD8A3AuwB8B2AfQC+AmAfgHcB+AEQPgtA4SEQvgtA4SEQvgtA4SEQvgtA4SEQvgtA4SEQvgsA/QEg+T3Uf57/CAAAAABJRU5ErkJggg==";
+
+        const defaultStarColor = new BABYLON.Color3(1, 1, 1);
+        const defaultStarSize = starSizeScaleFactor;
+
+        const famousStarsData = [
+            { id: 'sun', name: 'Sun', constellation: 'N/A', pos: new BABYLON.Vector3(0, 0, 0), color: new BABYLON.Color3(1, 1, 0.8), size: starSizeScaleFactor * 1.8 },
+            { id: 'orion-betelgeuse', name: 'Betelgeuse', constellation: 'Orion', pos: new BABYLON.Vector3(-8, 10, -30).scale(distanceScaleFactor / 10), color: new BABYLON.Color3(1, 0.6, 0.4), size: starSizeScaleFactor * 2.5 },
+            { id: 'orion-rigel', name: 'Rigel', constellation: 'Orion', pos: new BABYLON.Vector3(10, -9, -35).scale(distanceScaleFactor / 10), color: new BABYLON.Color3(0.7, 0.8, 1), size: starSizeScaleFactor * 2.2 },
+            { id: 'orion-alnitak', name: 'Alnitak', constellation: 'Orion', pos: new BABYLON.Vector3(2, -8, -38).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'orion-alnilam', name: 'Alnilam', constellation: 'Orion', pos: new BABYLON.Vector3(0, -7.5, -40).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'orion-mintaka', name: 'Mintaka', constellation: 'Orion', pos: new BABYLON.Vector3(-2, -7, -37).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'orion-saiph', name: 'Saiph', constellation: 'Orion', pos: new BABYLON.Vector3(9, -15, -32).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'canismajor-sirius', name: 'Sirius', constellation: 'Canis Major', pos: new BABYLON.Vector3(-15, -18, 5).scale(distanceScaleFactor / 10), color: new BABYLON.Color3(0.8, 0.9, 1), size: starSizeScaleFactor * 1.5 },
+            { id: 'canismajor-adhara', name: 'Adhara', constellation: 'Canis Major', pos: new BABYLON.Vector3(-20, -25, -45).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'ursamajor-dubhe', name: 'Dubhe', constellation: 'Ursa Major', pos: new BABYLON.Vector3(-15, 25, -20).scale(distanceScaleFactor / 10), color: new BABYLON.Color3(1, 0.9, 0.7), size: defaultStarSize },
+            { id: 'ursamajor-merak', name: 'Merak', constellation: 'Ursa Major', pos: new BABYLON.Vector3(-12, 18, -18).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'ursamajor-phecda', name: 'Phecda', constellation: 'Ursa Major', pos: new BABYLON.Vector3(-5, 16, -19).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'ursamajor-megrez', name: 'Megrez', constellation: 'Ursa Major', pos: new BABYLON.Vector3(-8, 22, -21).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'ursamajor-alioth', name: 'Alioth', constellation: 'Ursa Major', pos: new BABYLON.Vector3(0, 20, -22).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'ursamajor-mizar', name: 'Mizar', constellation: 'Ursa Major', pos: new BABYLON.Vector3(5, 18, -23).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'ursamajor-alkaid', name: 'Alkaid', constellation: 'Ursa Major', pos: new BABYLON.Vector3(10, 15, -25).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'ursaminor-polaris', name: 'Polaris', constellation: 'Ursa Minor', pos: new BABYLON.Vector3(-18, 40, -40).scale(distanceScaleFactor / 10), color: new BABYLON.Color3(1, 1, 0.85), size: starSizeScaleFactor * 1.2 },
+            { id: 'ursaminor-kochab', name: 'Kochab', constellation: 'Ursa Minor', pos: new BABYLON.Vector3(-15, 35, -30).scale(distanceScaleFactor / 10), color: new BABYLON.Color3(1, 0.8, 0.6), size: defaultStarSize },
+            { id: 'cassiopeia-schedar', name: 'Schedar', constellation: 'Cassiopeia', pos: new BABYLON.Vector3(20, 30, -30).scale(distanceScaleFactor / 10), color: new BABYLON.Color3(1, 0.8, 0.6), size: defaultStarSize },
+            { id: 'cassiopeia-caph', name: 'Caph', constellation: 'Cassiopeia', pos: new BABYLON.Vector3(15, 35, -28).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'cassiopeia-ruchbah', name: 'Ruchbah', constellation: 'Cassiopeia', pos: new BABYLON.Vector3(25, 25, -32).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'cassiopeia-segin', name: 'Segin', constellation: 'Cassiopeia', pos: new BABYLON.Vector3(10, 30, -35).scale(distanceScaleFactor / 10), color: new BABYLON.Color3(0.8, 0.9, 1), size: defaultStarSize },
+            { id: 'cassiopeia-navi', name: 'Navi (Gamma Cas)', constellation: 'Cassiopeia', pos: new BABYLON.Vector3(22, 32, -29).scale(distanceScaleFactor / 10), color: new BABYLON.Color3(0.8, 0.9, 1), size: defaultStarSize },
+
+            { id: 'andromeda-alpheratz', name: 'Alpheratz', constellation: 'Andromeda', pos: new BABYLON.Vector3(35, 38, -40).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'andromeda-mirach', name: 'Mirach', constellation: 'Andromeda', pos: new BABYLON.Vector3(40, 30, -45).scale(distanceScaleFactor / 10), color: new BABYLON.Color3(1, 0.7, 0.5), size: defaultStarSize },
+            { id: 'antlia-alpha', name: 'Alpha Antliae', constellation: 'Antlia', pos: new BABYLON.Vector3(-40, -50, -50).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'apus-alpha', name: 'Alpha Apodis', constellation: 'Apus', pos: new BABYLON.Vector3(0, -70, -60).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'aquarius-sadalmelik', name: 'Sadalmelik', constellation: 'Aquarius', pos: new BABYLON.Vector3(30, -10, -60).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'aquila-altair', name: 'Altair', constellation: 'Aquila', pos: new BABYLON.Vector3(50, 10, -15).scale(distanceScaleFactor / 10), color: defaultStarColor, size: starSizeScaleFactor * 1.1 },
+            { id: 'ara-beta', name: 'Beta Arae', constellation: 'Ara', pos: new BABYLON.Vector3(-10, -65, -40).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'aries-hamal', name: 'Hamal', constellation: 'Aries', pos: new BABYLON.Vector3(45, 20, -40).scale(distanceScaleFactor / 10), color: new BABYLON.Color3(1, 0.9, 0.7), size: defaultStarSize },
+            { id: 'auriga-capella', name: 'Capella', constellation: 'Auriga', pos: new BABYLON.Vector3(0, 45, -30).scale(distanceScaleFactor / 10), color: new BABYLON.Color3(1, 1, 0.8), size: starSizeScaleFactor * 1.2 },
+            { id: 'bootes-arcturus', name: 'Arcturus', constellation: 'Boötes', pos: new BABYLON.Vector3(-30, 45, -10).scale(distanceScaleFactor / 10), color: new BABYLON.Color3(1, 0.7, 0.4), size: starSizeScaleFactor * 1.3 },
+            { id: 'caelum-alpha', name: 'Alpha Caeli', constellation: 'Caelum', pos: new BABYLON.Vector3(60, -40, -70).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'camelopardalis-alpha', name: 'Alpha Camelopardalis', constellation: 'Camelopardalis', pos: new BABYLON.Vector3(5, 70, -50).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'canesvenatici-corcaroli', name: 'Cor Caroli', constellation: 'Canes Venatici', pos: new BABYLON.Vector3(-40, 40, -25).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'canisminor-procyon', name: 'Procyon', constellation: 'Canis Minor', pos: new BABYLON.Vector3(-25, 5, 10).scale(distanceScaleFactor / 10), color: new BABYLON.Color3(1, 1, 0.9), size: starSizeScaleFactor * 1.1 },
+            { id: 'capricornus-denebalgedi', name: 'Deneb Algedi', constellation: 'Capricornus', pos: new BABYLON.Vector3(15, -25, -55).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'carina-canopus', name: 'Canopus', constellation: 'Carina', pos: new BABYLON.Vector3(70, -55, -20).scale(distanceScaleFactor / 10), color: new BABYLON.Color3(1, 1, 0.9), size: starSizeScaleFactor * 1.4 },
+            { id: 'centaurus-alphacentauri', name: 'Alpha Centauri', constellation: 'Centaurus', pos: new BABYLON.Vector3(-20, -45, 5).scale(distanceScaleFactor / 10), color: new BABYLON.Color3(1, 1, 0.8), size: starSizeScaleFactor * 1.1 },
+            { id: 'cepheus-alderamin', name: 'Alderamin', constellation: 'Cepheus', pos: new BABYLON.Vector3(5, 65, -35).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'cetus-menkar', name: 'Menkar', constellation: 'Cetus', pos: new BABYLON.Vector3(60, -5, -50).scale(distanceScaleFactor / 10), color: new BABYLON.Color3(1, 0.7, 0.6), size: defaultStarSize },
+            { id: 'chamaeleon-alpha', name: 'Alpha Chamaeleontis', constellation: 'Chamaeleon', pos: new BABYLON.Vector3(25, -75, -40).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'circinus-alpha', name: 'Alpha Circini', constellation: 'Circinus', pos: new BABYLON.Vector3(-15, -60, -30).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'columba-phaet', name: 'Phact', constellation: 'Columba', pos: new BABYLON.Vector3(80, -35, -40).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'comaberenices-beta', name: 'Beta Comae Berenices', constellation: 'Coma Berenices', pos: new BABYLON.Vector3(-50, 30, -30).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'coronaaustralis-meridiana', name: 'Meridiana', constellation: 'Corona Australis', pos: new BABYLON.Vector3(5, -45, -60).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'coronaborealis-alphecca', name: 'Alphecca (Gemma)', constellation: 'Corona Borealis', pos: new BABYLON.Vector3(-15, 50, -35).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'corvus-giena', name: 'Gienah', constellation: 'Corvus', pos: new BABYLON.Vector3(-65, -20, -40).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'crater-alkes', name: 'Alkes', constellation: 'Crater', pos: new BABYLON.Vector3(-55, -15, -45).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'crux-acrux', name: 'Acrux', constellation: 'Crux', pos: new BABYLON.Vector3(-30, -60, -15).scale(distanceScaleFactor / 10), color: new BABYLON.Color3(0.8, 0.9, 1), size: defaultStarSize },
+            { id: 'cygnus-deneb', name: 'Deneb', constellation: 'Cygnus', pos: new BABYLON.Vector3(60, 50, -50).scale(distanceScaleFactor / 10), color: new BABYLON.Color3(0.9, 0.9, 1), size: starSizeScaleFactor * 1.2 },
+            { id: 'delphinus-sualocin', name: 'Sualocin', constellation: 'Delphinus', pos: new BABYLON.Vector3(65, 15, -40).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'dorado-alpha', name: 'Alpha Doradus', constellation: 'Dorado', pos: new BABYLON.Vector3(90, -55, -60).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'draco-thuban', name: 'Thuban', constellation: 'Draco', pos: new BABYLON.Vector3(-20, 65, -45).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'equuleus-kitalpha', name: 'Kitalpha', constellation: 'Equuleus', pos: new BABYLON.Vector3(70, 10, -45).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'eridanus-achernar', name: 'Achernar', constellation: 'Eridanus', pos: new BABYLON.Vector3(90, -25, -70).scale(distanceScaleFactor / 10), color: new BABYLON.Color3(0.8, 0.9, 1), size: starSizeScaleFactor * 1.1 },
+            { id: 'fornax-alpha', name: 'Alpha Fornacis', constellation: 'Fornax', pos: new BABYLON.Vector3(75, -30, -65).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'gemini-pollux', name: 'Pollux', constellation: 'Gemini', pos: new BABYLON.Vector3(-20, 30, -20).scale(distanceScaleFactor / 10), color: new BABYLON.Color3(1, 0.8, 0.6), size: starSizeScaleFactor * 1.1 },
+            { id: 'gemini-castor', name: 'Castor', constellation: 'Gemini', pos: new BABYLON.Vector3(-15, 35, -25).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'grus-alnaair', name: 'Alnair', constellation: 'Grus', pos: new BABYLON.Vector3(20, -40, -75).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'hercules-rasalgethi', name: 'Rasalgethi', constellation: 'Hercules', pos: new BABYLON.Vector3(10, 40, -40).scale(distanceScaleFactor / 10), color: new BABYLON.Color3(1, 0.6, 0.4), size: defaultStarSize },
+            { id: 'horologium-alpha', name: 'Alpha Horologii', constellation: 'Horologium', pos: new BABYLON.Vector3(85, -45, -75).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'hydra-alphard', name: 'Alphard', constellation: 'Hydra', pos: new BABYLON.Vector3(-40, -10, -35).scale(distanceScaleFactor / 10), color: new BABYLON.Color3(1, 0.8, 0.6), size: defaultStarSize },
+            { id: 'hydrus-alpha', name: 'Alpha Hydri', constellation: 'Hydrus', pos: new BABYLON.Vector3(45, -70, -80).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'indus-alpha', name: 'Alpha Indi', constellation: 'Indus', pos: new BABYLON.Vector3(10, -55, -80).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'lacerta-alpha', name: 'Alpha Lacertae', constellation: 'Lacerta', pos: new BABYLON.Vector3(45, 55, -45).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'leo-regulus', name: 'Regulus', constellation: 'Leo', pos: new BABYLON.Vector3(-45, 15, -30).scale(distanceScaleFactor / 10), color: new BABYLON.Color3(0.9, 0.9, 1), size: starSizeScaleFactor * 1.1 },
+            { id: 'leo-denebola', name: 'Denebola', constellation: 'Leo', pos: new BABYLON.Vector3(-60, 20, -35).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'leominor-praecipua', name: 'Praecipua', constellation: 'Leo Minor', pos: new BABYLON.Vector3(-40, 35, -30).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'lepus-arnab', name: 'Arneb', constellation: 'Lepus', pos: new BABYLON.Vector3(95, -18, -45).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'libra-zubeneshamali', name: 'Zubeneschamali', constellation: 'Libra', pos: new BABYLON.Vector3(-20, -15, -50).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'lupus-alpha', name: 'Alpha Lupi', constellation: 'Lupus', pos: new BABYLON.Vector3(-25, -40, -30).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'lynx-alpha', name: 'Alpha Lyncis', constellation: 'Lynx', pos: new BABYLON.Vector3(-25, 50, -35).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'lyra-vega', name: 'Vega', constellation: 'Lyra', pos: new BABYLON.Vector3(30, 45, -20).scale(distanceScaleFactor / 10), color: new BABYLON.Color3(0.9, 0.9, 1), size: starSizeScaleFactor * 1.2 },
+            { id: 'mensa-alpha', name: 'Alpha Mensae', constellation: 'Mensa', pos: new BABYLON.Vector3(65, -75, -70).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'microscopium-gamma', name: 'Gamma Microscopii', constellation: 'Microscopium', pos: new BABYLON.Vector3(5, -35, -70).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'monoceros-alpha', name: 'Alpha Monocerotis', constellation: 'Monoceros', pos: new BABYLON.Vector3(-20, -5, -25).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'musca-alpha', name: 'Alpha Muscae', constellation: 'Musca', pos: new BABYLON.Vector3(-5, -68, -30).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'norma-gamma2', name: 'Gamma2 Normae', constellation: 'Norma', pos: new BABYLON.Vector3(-5, -50, -40).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'octans-nu', name: 'Nu Octantis', constellation: 'Octans', pos: new BABYLON.Vector3(0, -85, -50).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'ophiuchus-rasalhague', name: 'Rasalhague', constellation: 'Ophiuchus', pos: new BABYLON.Vector3(15, 15, -45).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'pavo-peacock', name: 'Peacock', constellation: 'Pavo', pos: new BABYLON.Vector3(-15, -65, -75).scale(distanceScaleFactor / 10), color: new BABYLON.Color3(0.8, 0.9, 1), size: defaultStarSize },
+            { id: 'pegasus-markab', name: 'Markab', constellation: 'Pegasus', pos: new BABYLON.Vector3(40, 25, -55).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'perseus-mirfak', name: 'Mirfak', constellation: 'Perseus', pos: new BABYLON.Vector3(25, 50, -35).scale(distanceScaleFactor / 10), color: new BABYLON.Color3(1, 1, 0.9), size: defaultStarSize },
+            { id: 'phoenix-ankaa', name: 'Ankaa', constellation: 'Phoenix', pos: new BABYLON.Vector3(50, -45, -80).scale(distanceScaleFactor / 10), color: new BABYLON.Color3(1, 0.8, 0.6), size: defaultStarSize },
+            { id: 'pictor-alpha', name: 'Alpha Pictoris', constellation: 'Pictor', pos: new BABYLON.Vector3(80, -50, -55).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'pisces-alpherg', name: 'Alpherg', constellation: 'Pisces', pos: new BABYLON.Vector3(55, 10, -50).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'piscisaustrinus-fomalhaut', name: 'Fomalhaut', constellation: 'Piscis Austrinus', pos: new BABYLON.Vector3(35, -30, -70).scale(distanceScaleFactor / 10), color: defaultStarColor, size: starSizeScaleFactor * 1.1 },
+            { id: 'puppis-naos', name: 'Naos', constellation: 'Puppis', pos: new BABYLON.Vector3(35, -40, -30).scale(distanceScaleFactor / 10), color: new BABYLON.Color3(0.7, 0.8, 1), size: defaultStarSize },
+            { id: 'pyxis-alpha', name: 'Alpha Pyxidis', constellation: 'Pyxis', pos: new BABYLON.Vector3(-35, -30, -35).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'reticulum-alpha', name: 'Alpha Reticuli', constellation: 'Reticulum', pos: new BABYLON.Vector3(70, -60, -75).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'sagittarius-kausustralis', name: 'Kaus Australis', constellation: 'Sagittarius', pos: new BABYLON.Vector3(-5, -35, -50).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'scorpius-antares', name: 'Antares', constellation: 'Scorpius', pos: new BABYLON.Vector3(-10, -25, -40).scale(distanceScaleFactor / 10), color: new BABYLON.Color3(1, 0.4, 0.2), size: starSizeScaleFactor * 1.6 },
+            { id: 'scutum-alpha', name: 'Alpha Scuti', constellation: 'Scutum', pos: new BABYLON.Vector3(30, -10, -50).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'serpens-unukalhai', name: 'Unukalhai', constellation: 'Serpens', pos: new BABYLON.Vector3(5, 10, -45).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'sextans-alpha', name: 'Alpha Sextantis', constellation: 'Sextans', pos: new BABYLON.Vector3(-50, 0, -40).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'taurus-aldebaran', name: 'Aldebaran', constellation: 'Taurus', pos: new BABYLON.Vector3(15, 15, -30).scale(distanceScaleFactor / 10), color: new BABYLON.Color3(1, 0.7, 0.5), size: starSizeScaleFactor * 1.3 },
+            { id: 'telescopium-alpha', name: 'Alpha Telescopii', constellation: 'Telescopium', pos: new BABYLON.Vector3(0, -50, -65).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'triangulum-mothallah', name: 'Mothallah', constellation: 'Triangulum', pos: new BABYLON.Vector3(30, 30, -40).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'triangulumaustrale-atina', name: 'Atria', constellation: 'Triangulum Australe', pos: new BABYLON.Vector3(-10, -65, -35).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'tucana-alpha', name: 'Alpha Tucanae', constellation: 'Tucana', pos: new BABYLON.Vector3(30, -60, -85).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'vela-gamma', name: 'Gamma Velorum', constellation: 'Vela', pos: new BABYLON.Vector3(45, -45, -35).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'virgo-spica', name: 'Spica', constellation: 'Virgo', pos: new BABYLON.Vector3(-40, -10, -45).scale(distanceScaleFactor / 10), color: new BABYLON.Color3(0.8, 0.9, 1), size: starSizeScaleFactor * 1.2 },
+            { id: 'volans-alpha', name: 'Alpha Volantis', constellation: 'Volans', pos: new BABYLON.Vector3(55, -65, -45).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+            { id: 'vulpecula-anser', name: 'Anser', constellation: 'Vulpecula', pos: new BABYLON.Vector3(55, 25, -45).scale(distanceScaleFactor / 10), color: defaultStarColor, size: defaultStarSize },
+        ];
+        const famousStarMeshes = {};
+
+        const constellationLinesData = [
+            ['orion-betelgeuse', 'orion-alnitak'], ['orion-rigel', 'orion-mintaka'],
+            ['orion-alnitak', 'orion-alnilam'], ['orion-alnilam', 'orion-mintaka'],
+            ['orion-alnilam', 'orion-saiph'], ['orion-rigel', 'orion-saiph'],
+            ['orion-betelgeuse', 'orion-mintaka'],
+            ['ursamajor-dubhe', 'ursamajor-merak'], ['ursamajor-merak', 'ursamajor-phecda'],
+            ['ursamajor-phecda', 'ursamajor-megrez'], ['ursamajor-megrez', 'ursamajor-alioth'],
+            ['ursamajor-alioth', 'ursamajor-mizar'], ['ursamajor-mizar', 'ursamajor-alkaid'],
+            ['ursaminor-polaris', 'ursaminor-kochab'],
+            ['cassiopeia-caph', 'cassiopeia-schedar'], ['cassiopeia-schedar', 'cassiopeia-navi'],
+            ['cassiopeia-navi', 'cassiopeia-ruchbah'], ['cassiopeia-ruchbah', 'cassiopeia-segin']
+        ];
+
+        function createScene() {
+            scene = new BABYLON.Scene(engine);
+            scene.clearColor = new BABYLON.Color4(0, 0, 0, 1);
+
+            const camera = new BABYLON.ArcRotateCamera("camera", -Math.PI / 2, Math.PI / 2.5, distanceScaleFactor * 8, BABYLON.Vector3.Zero(), scene);
+            camera.attachControl(canvas, true);
+            camera.lowerRadiusLimit = 15;
+            camera.upperRadiusLimit = distanceScaleFactor * 40;
+            camera.wheelDeltaPercentage = 0.01;
+
+            const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+            light.intensity = 0.2;
+
+            const starMaterial = new BABYLON.StandardMaterial("starMat", scene);
+            starMaterial.emissiveTexture = new BABYLON.Texture(starTextureBase64, scene);
+            starMaterial.disableLighting = true;
+            starMaterial.alpha = 0.95;
+
+            famousStarsData.forEach(starData => {
+                const starSphere = BABYLON.MeshBuilder.CreateSphere(starData.id, { diameter: starData.size * 2, segments: 16 }, scene);
+                starSphere.position = starData.pos;
+
+                const uniqueMat = starMaterial.clone(starData.id + "_mat");
+                uniqueMat.emissiveColor = starData.color;
+                starSphere.material = uniqueMat;
+
+                starSphere.metadata = {
+                    type: "famousStar",
+                    name: starData.name,
+                    constellation: starData.constellation
+                };
+                famousStarMeshes[starData.id] = starSphere;
+            });
+
+             createBackgroundStars(scene);
+             createConstellationLines(scene);
+
+             scene.onPointerObservable.add((pointerInfo) => {
+                 const infoBox = document.getElementById('infoBox');
+                 const starNameEl = document.getElementById('starName');
+                 const constellationNameEl = document.getElementById('constellationName');
+
+                 if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERPICK) {
+                     const pickedMesh = pointerInfo.pickInfo.pickedMesh;
+                     if (pickedMesh && pickedMesh.metadata && pickedMesh.metadata.type === "famousStar") {
+                         starNameEl.textContent = `Star: ${pickedMesh.metadata.name}`;
+                         constellationNameEl.textContent = `Constellation: ${pickedMesh.metadata.constellation}`;
+                         infoBox.style.display = 'block';
+                     } else {
+                          infoBox.style.display = 'none';
+                     }
+                 } else if(pointerInfo.type === BABYLON.PointerEventTypes.POINTERDOWN) {
+                       infoBox.style.display = 'none';
+                 }
+             });
+            return scene;
+        }
+
+        function createBackgroundStars(scene) {
+             const pcs = new BABYLON.PointsCloudSystem("pcs", backgroundStarSize, scene, { updatable: false });
+             const numBackgroundStars = 15000;
+             const spread = distanceScaleFactor * 50;
+
+             const pointCloudFunc = function(particle, i, s) {
+                particle.position = new BABYLON.Vector3(
+                    (Math.random() - 0.5) * spread * 2,
+                    (Math.random() - 0.5) * spread * 2,
+                    (Math.random() - 0.5) * spread * 2
+                );
+                const brightness = Math.random() * 0.5 + 0.5;
+                particle.color = new BABYLON.Color4(brightness, brightness, brightness * 1.1, 1);
+             }
+             pcs.addPoints(numBackgroundStars, pointCloudFunc);
+             pcs.buildMeshAsync();
+         }
+
+         function createConstellationLines(scene) {
+            const lineSystemPoints = [];
+            const lineColor = new BABYLON.Color3(0.3, 0.5, 0.7);
+
+            constellationLinesData.forEach(pair => {
+                const mesh1 = famousStarMeshes[pair[0]];
+                const mesh2 = famousStarMeshes[pair[1]];
+                if (mesh1 && mesh2) {
+                    lineSystemPoints.push([mesh1.position, mesh2.position]);
+                }
+            });
+
+            if(lineSystemPoints.length > 0) {
+                const lineSystem = BABYLON.MeshBuilder.CreateLineSystem("constellationLines", {
+                    lines: lineSystemPoints,
+                    updatable: false,
+                     useVertexAlpha: false
+                }, scene);
+                 lineSystem.color = lineColor;
+                 lineSystem.alpha = 0.3;
+                 lineSystem.isPickable = false;
+            }
+         }
+
+        scene = createScene();
+
+        engine.runRenderLoop(() => {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            engine.resize();
+        });
+    </script>
+</body>
+</html>
